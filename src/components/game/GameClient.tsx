@@ -20,6 +20,7 @@ type Phase = "idle" | "playing" | "countdown" | "result";
 type RoundResult = "win" | "lose" | "draw";
 
 const COUNTDOWN_STEP_MS = 700;
+const NEXT_ROUND_DELAY_MS = 2600;
 
 const RESULT_TEXT: Record<RoundResult, string> = {
   win: "Та хожлоо!",
@@ -42,13 +43,15 @@ export default function GameClient() {
 
   const playerMoveRef = useRef<Gesture | null>(null);
   const revealTimerRef = useRef<number | null>(null);
+  const nextRoundTimerRef = useRef<number | null>(null);
 
   const tracking = useHandTracking({ videoRef, canvasRef });
 
-  // clear pending reveal timer on unmount
+  // clear pending timers on unmount
   useEffect(() => {
     return () => {
       if (revealTimerRef.current !== null) window.clearTimeout(revealTimerRef.current);
+      if (nextRoundTimerRef.current !== null) window.clearTimeout(nextRoundTimerRef.current);
     };
   }, []);
 
@@ -56,6 +59,13 @@ export default function GameClient() {
     if (revealTimerRef.current !== null) {
       window.clearTimeout(revealTimerRef.current);
       revealTimerRef.current = null;
+    }
+  }, []);
+
+  const clearNextRoundTimer = useCallback(() => {
+    if (nextRoundTimerRef.current !== null) {
+      window.clearTimeout(nextRoundTimerRef.current);
+      nextRoundTimerRef.current = null;
     }
   }, []);
 
@@ -84,6 +94,12 @@ export default function GameClient() {
       }
       setRound((r0) => r0 + 1);
       setPhase("result");
+      // Auto-continue: give the player a moment to read the result, then
+      // return to "playing" so the next move can be locked and confirmed.
+      nextRoundTimerRef.current = window.setTimeout(() => {
+        nextRoundTimerRef.current = null;
+        setPhase("playing");
+      }, NEXT_ROUND_DELAY_MS);
     }, COUNTDOWN_STEP_MS * 3);
   }, []);
 
@@ -103,6 +119,7 @@ export default function GameClient() {
 
   const handleRestart = useCallback(() => {
     clearRevealTimer();
+    clearNextRoundTimer();
     setPlayerScore(0);
     setAiScore(0);
     setRound(1);
@@ -113,11 +130,12 @@ export default function GameClient() {
     playerMoveRef.current = null;
     tracking.resetStability();
     setPhase(tracking.cameraStatus === "on" ? "playing" : "idle");
-  }, [clearRevealTimer, tracking]);
+  }, [clearNextRoundTimer, clearRevealTimer, tracking]);
 
   const handleCameraToggle = useCallback(() => {
     if (tracking.cameraStatus === "on") {
       clearRevealTimer();
+      clearNextRoundTimer();
       tracking.stop();
       setCountdown(null);
       setAiMove(null);
@@ -126,7 +144,7 @@ export default function GameClient() {
     } else if (tracking.cameraStatus === "off" || tracking.cameraStatus === "error") {
       void beginCamera();
     }
-  }, [beginCamera, clearRevealTimer, tracking]);
+  }, [beginCamera, clearNextRoundTimer, clearRevealTimer, tracking]);
 
   const cameraOn = tracking.cameraStatus === "on";
   const startLabel =

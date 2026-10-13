@@ -24,3 +24,21 @@ Stage Summary:
 - Deliverable: runnable Next.js 16 app at `/` — complete webcam hand-tracking RPS game, all UI text Mongolian, dark charcoal + electric blue/soft purple design.
 - Key files: src/lib/gesture.ts, src/lib/handLandmarkerClient.ts, src/hooks/useHandTracking.ts, src/components/game/{CameraPreview,GestureCard,ScoreBoard,GameClient}.tsx, src/app/{page,layout}.tsx, public/mediapipe/{wasm,models}/.
 - Test artifacts: scripts/test-gesture.ts (unit), scripts/*.png (verification screenshots). Test images removed from public/.
+
+---
+Task ID: 2
+Agent: main (Super Z)
+Task: Continue/verify the RPS webcam game after context reset; re-run E2E verification and fix any issues found.
+
+Work Log:
+- Verified environment re-init: dev server healthy on port 3000 (GET / 200), all files from Task 1 intact (gesture.ts, handLandmarkerClient.ts, useHandTracking.ts, 4 game components, self-hosted MediaPipe wasm + model).
+- Re-ran unit tests: scripts/test-gesture.ts — 12/12 pass.
+- Agent Browser verification: idle render clean (Mongolian UI, gradient title, scoreboard, 3 buttons), zero console/page errors; camera-missing error path shows Mongolian message + Дахин оролдох retry.
+- Full E2E with patched getUserMedia (canvas.captureStream of synthetic hand photos): Даавуу detected → 800 ms lock (ТОГТСОН) → confirm → 3-2-1 countdown → AI reveal → correct result; second round with Хайч classified and scored correctly (1:0, round 3); restart resets to 0:0/round 1; camera toggle returns to idle and stops tracks (srcObject cleared).
+- BUG FOUND & FIXED: after a round revealed its result, phase stayed "result" forever — confirm button permanently disabled, multi-round play impossible (soft-lock; only restart could escape, wiping scores). Root cause: Task 1's lint refactor (effects → event handlers) dropped the return-to-playing transition. Fix in GameClient.tsx: added nextRoundTimerRef + NEXT_ROUND_DELAY_MS (2600 ms) auto-continue timer scheduled in runRoundSequence after reveal; timer cleared on unmount/restart/camera-toggle. Lint passes.
+- Post-fix E2E re-verified: round 1 (draw) auto-continues to playing, held gesture re-locks, round 2 confirm works, scores accumulate across rounds.
+- Mobile 390×844 full-page screenshot: layout stacks correctly, sticky footer at bottom. Test images removed from public/test/ after verification.
+
+Stage Summary:
+- Game fully functional and browser-verified: real MediaPipe hand tracking, 3 gestures classified, 800 ms stability lock, confirm → countdown → AI reveal → result, score/round tracking across rounds, restart, camera toggle, Mongolian error handling, responsive dark AI design.
+- One real bug fixed this session (post-result soft-lock). All lint/unit/E2E checks green.
